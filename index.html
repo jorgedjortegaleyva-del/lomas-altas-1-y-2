@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Visor Campo Lomas Altas</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin:0; padding:0; font-family: Arial, sans-serif; background: #f0f0f0; }
+        #map { width: 100vw; height: 100vh; }
+        .galeria { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 8px;}
+        .foto-item { text-align: center; background: #fff; padding: 2px; border: 1px solid #ddd; border-radius: 4px; }
+        .foto-item img { width: 100%; height: 90px; object-fit: cover; border-radius: 2px;}
+        .foto-item span { display: block; font-size: 10px; font-weight: bold; color: #444; margin-top: 2px;}
+        .popup-datos { font-size: 13px; background: #e6f2ff; padding: 6px; border-left: 4px solid #0056b3; margin-bottom: 5px;}
+        .btn-listo { background: #e8f8f5; border: 1px solid #2ecc71; padding: 10px; border-radius: 5px; margin-top: 10px; display: block; }
+        .btn-listo label { cursor: pointer; font-weight: bold; color: #117a65; display: flex; align-items: center; gap: 8px; font-size: 14px;}
+        .btn-listo input { transform: scale(1.4); cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script src="datos.js"></script>
+    <script>
+        var map = L.map('map').setView([29.0, -110.0], 15);
+        var geojsonLayer;
+        
+        L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 21,
+            attribution: '© Google'
+        }).addTo(map);
+
+        function marcarListo(activo, isChecked) {
+            if(isChecked) {
+                localStorage.setItem("casa_" + activo, "completado");
+            } else {
+                localStorage.removeItem("casa_" + activo);
+            }
+            geojsonLayer.eachLayer(function(layer) {
+                if(layer.feature.properties.ACTIVO === activo) {
+                    layer.setStyle({ fillColor: isChecked ? "#2ecc71" : "#e74c3c" });
+                }
+            });
+        }
+
+        function onEachFeature(feature, layer) {
+            var p = feature.properties;
+            var html = '<div class="popup-datos">' +
+                       '<b>Activo:</b> ' + p.ACTIVO + ' | <b>Casa:</b> ' + p.CASA + '<br>' +
+                       '<b>Mza:</b> ' + p.MANZANA + ' | <b>Lote:</b> ' + p.LOTE + '</div>';
+            
+            var fotosHTML = '<div class="galeria">';
+            var fotos = [
+                {url: p.FOTO_FTE, label: "Frente"}, {url: p.FOTO_ACT, label: "Activo"},
+                {url: p.FOTO_DER, label: "Derecha"}, {url: p.FOTO_IZQ, label: "Izquierda"},
+                {url: p.FOTO_POS, label: "Posterior"}, {url: p.FOTO_LIB, label: "Libre"}
+            ];
+            
+            for(var i=0; i<fotos.length; i++) {
+                if(fotos[i].url) {
+                    fotosHTML += '<div class="foto-item"><img src="'+fotos[i].url+'"><span>'+fotos[i].label+'</span></div>';
+                }
+            }
+            fotosHTML += '</div>';
+            
+            var estaLista = localStorage.getItem("casa_" + p.ACTIVO) === "completado";
+            var colorFill = p.TIENE_FOTOS ? "#8e44ad" : (estaLista ? "#2ecc71" : "#e74c3c");
+            
+            if(!p.TIENE_FOTOS) {
+                var checkedAttr = estaLista ? "checked" : "";
+                fotosHTML = "<div style='color:#c0392b; font-size: 12px; margin-top:8px; font-weight:bold;'>El activo no tiene fotos.</div>" +
+                            "<div class='btn-listo'>" +
+                            "<label><input type='checkbox' onchange=\"marcarListo('" + p.ACTIVO + "', this.checked)\" " + checkedAttr + "> " +
+                            "✅ Fotos tomadas (Listo)</label></div>";
+            }
+            
+            layer.bindPopup(html + fotosHTML, {maxWidth: 420});
+            
+            layer.setStyle({
+                fillColor: colorFill,
+                color: "#ffffff",
+                weight: 1.5,
+                fillOpacity: 0.75
+            });
+        }
+
+        geojsonLayer = L.geoJSON(datos_casas, {
+            onEachFeature: onEachFeature
+        }).addTo(map);
+        
+        map.fitBounds(geojsonLayer.getBounds());
+    </script>
+</body>
+</html>
